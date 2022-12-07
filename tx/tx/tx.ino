@@ -32,6 +32,7 @@ void setup() {
 
 void displayInfo()
 {
+    
   LoRa.beginPacket();
   if (gps.location.isUpdated()){
     LoRa.print(F("LOC "));
@@ -66,7 +67,7 @@ void loop() {
     {
         displayInfo();
 
-        delay(3000);
+        delay(10000);
 
     }
   }

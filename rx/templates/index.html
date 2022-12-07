@@ -1,0 +1,60 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+    </head>
+    <body >
+        <div id="displayarea">
+        </div>
+        <script >
+            const displayArea = document.getElementById("displayarea");
+
+            function addLine(text) {
+                const para = document.createElement("p");
+                const node = document.createTextNode(text);
+                para.appendChild(node);
+                displayArea.appendChild(para);
+            }
+
+            function updatePage(data) {
+                data.something = "hello";
+                console.log(data);
+                console.log(data.longitude);
+                displayArea.innerHTML = "";
+                if (data.status == 'nsi') {
+                    addLine("No signal from transmitter.");
+                    return 0;
+                }
+
+                if (data.status == 'nol') {
+                    addLine("No GPS signal.");
+                }
+
+                if (data.status == 'loc') {
+                    if (data.posUpdateTime == 0)
+                        addLine("Position determined.");
+                    else
+                        addLine("No GPS signal since " + data.posUpdateTime + " seconds ago.");
+                    addLine("Coordinates: " + data.longitude + ' ' + data.latitude);
+                }
+
+                addLine("RSSI: " + data.rssi);
+                addLine("Last update from transmitter: " + data.lastReceptionTime + " seconds ago.");
+
+            }
+            function fetchAndUpdate() {
+                const request = new XMLHttpRequest();
+                request.open('POST', `/data`);
+                request.onload = () => {
+                    const response = request.responseText;
+                    console.log(response);
+                    updatePage(JSON.parse(response));
+                }
+                request.send();
+            }
+
+            fetchAndUpdate();
+            setInterval(fetchAndUpdate, 1000);
+
+        </script>
+    </body>
+</html>

@@ -1,6 +1,6 @@
 #include <SPI.h>
 #include "MyLora.h"
-#include <TinyGPSPlus.h>
+#include "NMEAParser.h"
 
 
 
@@ -10,16 +10,18 @@
 #define dio0 2
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP  3        /* Time ESP32 will go to sleep (in seconds) */
+#define TIME_TO_SLEEP  10        /* Time ESP32 will go to sleep (in seconds) */
 #define nGpsRetries 5
 
+//good one 0x64, 0xa4, 0xc4
 RTC_DATA_ATTR uint8_t modem_config[] = {0x72, 0x74, 0x04};
 RTC_DATA_ATTR LoRaClass LoRa(868E6, 0x21, ss, rst, dio0, modem_config);
-RTC_DATA_ATTR TinyGPSPlus gps;
 RTC_DATA_ATTR int lnl_time = -1;
 RTC_DATA_ATTR double lat;
 RTC_DATA_ATTR double longt;
 RTC_DATA_ATTR bool has_been_loc = false;
+
+NMEAParser gps;
 
 void setup() {
   // put your setup code here, to run once:
@@ -49,18 +51,14 @@ void setup() {
     }
   }*/
 
-  for (int i = 0; i < nGpsRetries; ++i) {
-      while (true)  {
-        if (Serial2.available())
-          if (gps.encode(Serial2.read())) break;
-
+  Serial2.flush();
+  while (true) {
+      while (!Serial2.available()); 
+      if(gps.feed((char)Serial2.read())) {
+          displayInfo();
+          break;
       }
-      if (gps.location.isValid()) break;
   }
-
-
-
-  displayInfo();
 
   
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
@@ -78,9 +76,9 @@ void displayInfo()
 {
     
   LoRa.beginPacket();
-  if (gps.location.isValid()){
-    lat = gps.location.lat();
-    longt = gps.location.lng();
+  if (gps.isValid()){
+    lat = gps.lat();
+    longt = gps.lng();
     lnl_time = 0;
     has_been_loc = true;
     Serial.println("Location updated.");
@@ -101,51 +99,6 @@ void displayInfo()
   }
   LoRa.sendPacket();
 }
-
-void displayInfo1()
-{
-    
-  LoRa.beginPacket();
-  LoRa.println("Loc info:");
-  Serial.println("Loc info:");
-  if (gps.location.isUpdated()) {
-    LoRa.println("Updated");
-    Serial.println("Updated");
-  }
-  if (gps.location.isValid()) {
-    LoRa.println("Valid");
-    Serial.println("Valid");
-  } 
-
-    double lat_ = gps.location.lat();
-    double longt_ = gps.location.lng();
-
-    LoRa.print(F("coords "));
-    LoRa.print(lat_, 6);
-    LoRa.print(F(" "));
-    LoRa.println(longt_, 6);
-
-    Serial.print(F("coords "));
-    Serial.print(lat_, 6);
-    Serial.print(F(" "));
-    Serial.println(longt_, 6);
-
-  
-  LoRa.sendPacket();
-}
-/*
-void loop() {
-  // put your main code here, to run repeatedly:
-
-
-  if (millis() > 5000 && gps.charsProcessed() < 10)
-  {
-    LoRa.beginPacket();
-    LoRa.print(F("ERR"));
-    LoRa.sendPacket();
-    delay(3000);
-  }
-}*/
 
 void loop() {
 

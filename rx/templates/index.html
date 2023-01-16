@@ -1,24 +1,57 @@
 <!DOCTYPE HTML>
 <html>
     <head>
+        <meta charset="UTF-8" />
+        <style>
+      #map {
+        width: 100%;
+        height: 400px;
+      }
+        </style>
+        <script>
+            top.dogMarker = 0;
+            top.usMarker = 0;
+        </script>
+        <script type="module" crossorigin src="{{url_for('static', filename='assets/index.js')}}"></script>
+        <link rel="stylesheet" href="{{url_for('static', filename='assets/index.css')}}">
     </head>
-    <body >
-        <div id="displayarea">
-        </div>
+    <body>
+        <div id="map"></div>
+        <div id="displayarea"></div>
+        <button onclick="copyLocation()">Copy subject location</button>
+        <br/>
+        <button onclick="top.focusMarker('dog')">Focus subject</button>
+        <button onclick="top.focusMarker('us')">Focus me</button>
+        <br/>
+        <button onclick="shutdownServer()">Power off</button>
         <script >
+            var waitingForLoc = false;
+
             const displayArea = document.getElementById("displayarea");
 
+            function shutdownServer() {
+                var shutdown = confirm("Are you sure you want to shut down?");
+                if (shutdown) {
+                    const request = new XMLHttpRequest();
+                    request.open('POST', `/shutdown`);
+                    request.send();
+                }
+            }
+
+            function copyLocation() {
+                const e = document.querySelector("#subjectCoords");
+                e.select();
+                e.setSelectionRange(0,99999);
+                document.execCommand('copy');
+            }
             function addLine(text) {
                 const para = document.createElement("p");
-                const node = document.createTextNode(text);
-                para.appendChild(node);
+                para.innerHTML = text;
                 displayArea.appendChild(para);
             }
 
             function updatePage(data) {
-                data.something = "hello";
                 console.log(data);
-                console.log(data.longitude);
                 displayArea.innerHTML = "";
                 if (data.status == 'nsi') {
                     addLine("No signal from transmitter.");
@@ -30,17 +63,31 @@
                 }
 
                 if (data.status == 'loc') {
-                    if (data.posUpdateTime == 0)
+                    if (data.posUpdateTime == 0) {
                         addLine("Position determined.");
+                        top.setMarkerPos('dog',[data.longitude, data.latitude]);
+                    }
                     else
                         addLine("No GPS signal since " + data.posUpdateTime + " seconds ago.");
-                    addLine("Coordinates: " + data.longitude + ' ' + data.latitude);
+                    addLine("Subject coordinates: <textarea id=\"subjectCoords\">" + data.latitude+ ' ' + data.longitude + "</textarea>");
                 }
 
                 addLine("RSSI: " + data.rssi);
                 addLine("Last update from transmitter: " + data.lastReceptionTime + " seconds ago.");
 
             }
+ 
+            function displayLoc(loc) {
+                const coords = [loc.coords.longitude, loc.coords.latitude];
+                top.setMarkerPos('us', coords);
+                waitingForLoc = false;
+            }
+
+            function onError(error) {
+                addLine("Location getting fail, code" + error.code + " message: " + error.message);
+                waitingForLoc = false;
+            }
+
             function fetchAndUpdate() {
                 const request = new XMLHttpRequest();
                 request.open('POST', `/data`);
@@ -48,8 +95,19 @@
                     const response = request.responseText;
                     console.log(response);
                     updatePage(JSON.parse(response));
+
+                    //update user location
+                    if(!waitingForLoc) {
+
+                    if (navigator.geolocation) {
+                        waitingForLoc = true;
+                        navigator.geolocation.getCurrentPosition(displayLoc, onError);
+                    } else 
+                        addLine("Geolocation not supported by this browser.");
+}
                 }
                 request.send();
+                
             }
 
             fetchAndUpdate();

@@ -1,0 +1,2 @@
+Special thanks for Sandeep Mistry for his LoRa library, which this project's LoRa library is built from:
+https://github.com/sandeepmistry/arduino-LoRa
